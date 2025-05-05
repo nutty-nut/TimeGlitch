@@ -1,5 +1,6 @@
 import pygame
 import random
+import math
 
 pygame.init()
 
@@ -24,6 +25,8 @@ YELLOW = (255, 255, 0)
 BLACK = (0, 0, 0)
 BLUE = (0, 100, 255)
 PURPLE = (128, 0, 128)
+CYAN = (0, 255, 255)
+MAGIC = (255, 0, 255)
 
 # Czcionka
 font = pygame.font.SysFont(None, 36)
@@ -35,14 +38,19 @@ ludzik_speed = 5
 # Tryb gry
 in_arena = False
 score = 0
+snake_lives = 10
+magic_item = None
 
-# Drzwi wejściowe na arenę
+# Glitch efekty
+glitch_frames = [(random.randint(-5, 5), random.randint(-5, 5)) for _ in range(10)]
+
+# Drzwi wejściowe
 door = pygame.Rect(WIDTH - 40, HEIGHT // 2 - 40, 30, 80)
 
 # Snake
 snake = []
 snake_speed = 2
-snake_length = 20
+snake_length = 10
 
 # Obiekty
 veggies = [pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15) for _ in range(5)]
@@ -51,6 +59,7 @@ food_items = [pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGH
 food_velocities = [(random.choice([-1, 1]) * random.randint(1, 2), random.choice([-1, 1]) * random.randint(1, 2)) for _ in food_items]
 
 clock = pygame.time.Clock()
+glitch_timer = 0
 
 # Funkcje
 def safe_div(a, b):
@@ -60,7 +69,9 @@ def distance(a, b):
     return ((a.x - b.x) ** 2 + (a.y - b.y) ** 2) ** 0.5
 
 def spawn_snake():
-    global snake
+    global snake, snake_length, snake_lives
+    snake_length = 10
+    snake_lives = snake_length
     start_x = random.randint(100, WIDTH - 100)
     start_y = random.randint(100, HEIGHT - 100)
     snake.clear()
@@ -71,6 +82,7 @@ def spawn_snake():
 running = True
 while running:
     clock.tick(60)
+    glitch_timer += 1
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -87,6 +99,7 @@ while running:
             in_arena = True
             ludzik.x, ludzik.y = WIDTH // 2, HEIGHT // 2
             spawn_snake()
+            magic_item = None
             veggies = [pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15) for _ in range(5)]
             food_items = [pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15) for _ in range(4)]
             food_velocities = [(random.choice([-1, 1]) * random.randint(1, 2), random.choice([-1, 1]) * random.randint(1, 2)) for _ in food_items]
@@ -98,58 +111,71 @@ while running:
                 veggies.append(pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15))
                 score += 1
 
-        # Snake AI: goni najbliższy obiekt (gracz lub jedzenie)
-        target = ludzik
-        min_dist = distance(snake[0], ludzik)
-        for food in food_items:
-            d = distance(snake[0], food)
-            if d < min_dist and d < 150:  # jeśli jedzenie blisko, priorytet
-                target = food
-                min_dist = d
+        if snake:
+            target = ludzik
+            min_dist = distance(snake[0], ludzik)
+            for food in food_items:
+                d = distance(snake[0], food)
+                if d < min_dist and d < 150:
+                    target = food
+                    min_dist = d
 
-        dx = target.x - snake[0].x
-        dy = target.y - snake[0].y
-        dist = distance(snake[0], target)
-        dir_x = safe_div(dx, dist)
-        dir_y = safe_div(dy, dist)
-        new_head = snake[0].copy()
-        new_head.x += int(snake_speed * dir_x)
-        new_head.y += int(snake_speed * dir_y)
-        snake.insert(0, new_head)
-        if len(snake) > snake_length:
-            snake.pop()
+            dx = target.x - snake[0].x
+            dy = target.y - snake[0].y
+            dist = distance(snake[0], target)
+            dir_x = safe_div(dx, dist)
+            dir_y = safe_div(dy, dist)
+            new_head = snake[0].copy()
+            new_head.x += int(snake_speed * dir_x)
+            new_head.y += int(snake_speed * dir_y)
+            snake.insert(0, new_head)
+            if len(snake) > snake_length:
+                snake.pop()
 
-        for bullet in bullets[:]:
-            dx = snake[0].x - bullet.x
-            dy = snake[0].y - bullet.y
-            dist = distance(bullet, snake[0])
-            bullet.x += int(6 * safe_div(dx, dist))
-            bullet.y += int(6 * safe_div(dy, dist))
-            if bullet.colliderect(snake[0]):
-                bullets.remove(bullet)
-                if snake_length > 3:
-                    snake_length -= 1
-                    snake.pop()
+            for bullet in bullets[:]:
+                if not snake:
+                    continue
+                dx = snake[0].x - bullet.x
+                dy = snake[0].y - bullet.y
+                dist = distance(bullet, snake[0])
+                bullet.x += int(6 * safe_div(dx, dist))
+                bullet.y += int(6 * safe_div(dy, dist))
+                if snake and bullet.colliderect(snake[0]):
+                    bullets.remove(bullet)
+                    snake_lives -= 1
+                    if snake_lives <= 0:
+                        magic_item = pygame.Rect(snake[0].x, snake[0].y, 15, 15)
+                        snake.clear()
+                    else:
+                        snake_length = max(1, snake_length - 1)
+                        if len(snake) > snake_length:
+                            snake.pop()
 
         for i, food in enumerate(food_items):
             food.x += food_velocities[i][0]
             food.y += food_velocities[i][1]
-
             if food.left <= 0 or food.right >= WIDTH:
                 food_velocities[i] = (-food_velocities[i][0], food_velocities[i][1])
             if food.top <= 0 or food.bottom >= HEIGHT:
                 food_velocities[i] = (food_velocities[i][0], -food_velocities[i][1])
-
-            if snake[0].colliderect(food):
+            if snake and snake[0].colliderect(food):
                 food_items[i] = pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15)
                 food_velocities[i] = (random.choice([-1, 1]) * random.randint(1, 2), random.choice([-1, 1]) * random.randint(1, 2))
-                snake_length += 1
+                grow_amount = 3
+                snake_length += grow_amount
+                snake_lives += grow_amount
                 tail = snake[-1].copy()
-                snake.append(tail)
+                for _ in range(grow_amount):
+                    snake.append(tail.copy())
 
-        if ludzik.colliderect(snake[0]):
-            print("Game Over!")
-            running = False
+        if snake and ludzik.colliderect(snake[0]):
+            ludzik.x, ludzik.y = 100, 300
+            in_arena = False
+
+        if magic_item and ludzik.colliderect(magic_item):
+            magic_item = None
+            ludzik.x, ludzik.y = 100, 300
+            in_arena = False
 
     screen.fill(BLUE if not in_arena else BLACK)
 
@@ -159,15 +185,24 @@ while running:
         text = font.render("Wejście do Areny", True, BLACK)
         screen.blit(text, (door.x - 30, door.y - 30))
     else:
-        pygame.draw.rect(screen, YELLOW, ludzik)
+        offset_x, offset_y = glitch_frames[glitch_timer % len(glitch_frames)] if glitch_timer % 10 < 3 else (0, 0)
+
+        if glitch_timer % 20 < 5:
+            screen.fill((random.randint(0, 30), random.randint(0, 30), random.randint(0, 30)))
+
+        pygame.draw.rect(screen, YELLOW, ludzik.move(offset_x, offset_y))
         for s in snake:
-            pygame.draw.rect(screen, GREEN, s)
+            pygame.draw.rect(screen, GREEN, s.move(offset_x, offset_y))
         for veggie in veggies:
-            pygame.draw.rect(screen, RED, veggie)
+            pygame.draw.rect(screen, RED, veggie.move(offset_x, offset_y))
         for bullet in bullets:
-            pygame.draw.rect(screen, WHITE, bullet)
+            pygame.draw.rect(screen, WHITE, bullet.move(offset_x, offset_y))
         for food in food_items:
-            pygame.draw.rect(screen, PURPLE, food)
+            pygame.draw.rect(screen, PURPLE, food.move(offset_x, offset_y))
+        if magic_item:
+            pygame.draw.rect(screen, MAGIC, magic_item.move(offset_x, offset_y))
+        if glitch_timer % 15 < 3:
+            pygame.draw.rect(screen, CYAN, pygame.Rect(random.randint(0, WIDTH), random.randint(0, HEIGHT), 50, 10))
 
         score_text = font.render(f"Punkty: {score}", True, WHITE)
         screen.blit(score_text, (10, 10))
