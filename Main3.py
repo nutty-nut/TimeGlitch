@@ -40,6 +40,7 @@ in_arena = False
 score = 0
 snake_lives = 10
 magic_item = None
+portal = None
 
 # Glitch efekty
 glitch_frames = [(random.randint(-5, 5), random.randint(-5, 5)) for _ in range(10)]
@@ -100,6 +101,7 @@ while running:
             ludzik.x, ludzik.y = WIDTH // 2, HEIGHT // 2
             spawn_snake()
             magic_item = None
+            portal = None
             veggies = [pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15) for _ in range(5)]
             food_items = [pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15) for _ in range(4)]
             food_velocities = [(random.choice([-1, 1]) * random.randint(1, 2), random.choice([-1, 1]) * random.randint(1, 2)) for _ in food_items]
@@ -174,6 +176,7 @@ while running:
 
         if magic_item and ludzik.colliderect(magic_item):
             magic_item = None
+            portal = pygame.Rect(10, HEIGHT // 2 - 40, 30, 80)
             ludzik.x, ludzik.y = 100, 300
             in_arena = False
 
@@ -182,6 +185,8 @@ while running:
     if not in_arena:
         pygame.draw.rect(screen, YELLOW, ludzik)
         pygame.draw.rect(screen, WHITE, door)
+        if portal:
+            pygame.draw.rect(screen, WHITE, portal)
         text = font.render("Wejście do Areny", True, BLACK)
         screen.blit(text, (door.x - 30, door.y - 30))
     else:
