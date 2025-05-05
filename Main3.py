@@ -1,8 +1,14 @@
 import pygame
 import random
 import math
+import os
 
 pygame.init()
+
+# Wczytaj animowane obrazy myszy
+mouse_img_1 = pygame.transform.scale(pygame.image.load(os.path.join("Graphics", "mysz_1.png")), (20, 20))
+mouse_img_2 = pygame.transform.scale(pygame.image.load(os.path.join("Graphics", "mysz_2.png")), (20, 20))
+mouse_anim_timer = 0
 
 # Muzyka
 try:
@@ -84,6 +90,7 @@ running = True
 while running:
     clock.tick(60)
     glitch_timer += 1
+    mouse_anim_timer += 1
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -203,7 +210,8 @@ while running:
         for bullet in bullets:
             pygame.draw.rect(screen, WHITE, bullet.move(offset_x, offset_y))
         for food in food_items:
-            pygame.draw.rect(screen, PURPLE, food.move(offset_x, offset_y))
+            mouse_frame = mouse_img_1 if (mouse_anim_timer // 10) % 2 == 0 else mouse_img_2
+            screen.blit(mouse_frame, food.move(offset_x, offset_y))
         if magic_item:
             pygame.draw.rect(screen, MAGIC, magic_item.move(offset_x, offset_y))
         if glitch_timer % 15 < 3:
