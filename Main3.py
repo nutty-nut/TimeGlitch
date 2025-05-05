@@ -6,14 +6,19 @@ import os
 pygame.init()
 
 def load_mouse_images():
-    directions = ["up", "down", "left", "right"]
     imgs = {}
-    for d in directions:
-        imgs[d] = [
-            pygame.transform.scale(pygame.image.load(os.path.join("Graphics", f"mysz_1_{d}.png")), (20, 20)),
-            pygame.transform.scale(pygame.image.load(os.path.join("Graphics", f"mysz_2_{d}.png")), (20, 20))
+    for direction in ["up", "down"]:
+        imgs[direction] = [
+            pygame.transform.scale(pygame.image.load(os.path.join("Graphics", f"mysz_1_{direction}.png")), (15, 20)),
+            pygame.transform.scale(pygame.image.load(os.path.join("Graphics", f"mysz_2_{direction}.png")), (15, 20))
+        ]
+    for direction in ["left", "right"]:
+        imgs[direction] = [
+            pygame.transform.scale(pygame.image.load(os.path.join("Graphics", f"mysz_1_{direction}.png")), (20, 16)),
+            pygame.transform.scale(pygame.image.load(os.path.join("Graphics", f"mysz_2_{direction}.png")), (20, 16))
         ]
     return imgs
+
 
 mouse_imgs = load_mouse_images()
 fruit_imgs = [
@@ -211,10 +216,20 @@ while running:
 
         for i in range(len(food_items)):
             food_items[i] = food_items[i].move(food_velocities[i][0], food_velocities[i][1])
-            if food_items[i].left <= 0 or food_items[i].right >= WIDTH:
+            if food_items[i].right >= WIDTH:
                 food_velocities[i][0] *= -1
-            if food_items[i].top <= 0 or food_items[i].bottom >= HEIGHT:
+                mouse_directions[i] = "left"
+            elif food_items[i].left <= 0:
+                food_velocities[i][0] *= -1
+                mouse_directions[i] = "right"
+
+            if food_items[i].bottom >= HEIGHT:
                 food_velocities[i][1] *= -1
+                mouse_directions[i] = "up"
+            elif food_items[i].top <= 0:
+                food_velocities[i][1] *= -1
+                mouse_directions[i] = "down"
+
             if snake and snake[0].colliderect(food_items[i]):
                 food_items[i] = pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 20, 20)
                 food_velocities[i] = [random.choice([-1,1])*random.randint(1,2), random.choice([-1,1])*random.randint(1,2)]
