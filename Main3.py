@@ -3,6 +3,14 @@ import random
 
 pygame.init()
 
+# Muzyka
+try:
+    pygame.mixer.init()
+    pygame.mixer.music.load("music.mp3")
+    pygame.mixer.music.play(-1)
+except:
+    print("Nie można załadować pliku muzycznego")
+
 # Ekran
 WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -15,6 +23,7 @@ RED = (255, 0, 0)
 YELLOW = (255, 255, 0)
 BLACK = (0, 0, 0)
 BLUE = (0, 100, 255)
+PURPLE = (128, 0, 128)
 
 # Czcionka
 font = pygame.font.SysFont(None, 36)
@@ -35,24 +44,28 @@ snake = []
 snake_speed = 2
 snake_length = 20
 
-# Warzywa i pociski
-veggies = [pygame.Rect(random.randint(0, WIDTH-20), random.randint(0, HEIGHT-20), 15, 15) for _ in range(5)]
+# Obiekty
+veggies = [pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15) for _ in range(5)]
 bullets = []
+food_items = [pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15) for _ in range(4)]
+food_velocities = [(random.choice([-1, 1]) * random.randint(1, 2), random.choice([-1, 1]) * random.randint(1, 2)) for _ in food_items]
 
 clock = pygame.time.Clock()
 
-# Funkcja bezpiecznej odległości
+# Funkcje
 def safe_div(a, b):
     return a / b if b != 0 else 0
 
 def distance(a, b):
-    return max(abs(a.x - b.x), abs(a.y - b.y))
+    return ((a.x - b.x) ** 2 + (a.y - b.y) ** 2) ** 0.5
 
 def spawn_snake():
     global snake
     start_x = random.randint(100, WIDTH - 100)
     start_y = random.randint(100, HEIGHT - 100)
-    snake = [pygame.Rect(start_x, start_y, 20, 20) for _ in range(snake_length)]
+    snake.clear()
+    for i in range(snake_length):
+        snake.append(pygame.Rect(start_x - i * 20, start_y, 20, 20))
 
 # Główna pętla gry
 running = True
@@ -63,7 +76,6 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-    # Poruszanie się ludzikiem
     keys = pygame.key.get_pressed()
     if keys[pygame.K_LEFT] and ludzik.x > 0: ludzik.x -= ludzik_speed
     if keys[pygame.K_RIGHT] and ludzik.x < WIDTH - ludzik.width: ludzik.x += ludzik_speed
@@ -71,33 +83,33 @@ while running:
     if keys[pygame.K_DOWN] and ludzik.y < HEIGHT - ludzik.height: ludzik.y += ludzik_speed
 
     if not in_arena:
-        # Przejście przez drzwi
         if ludzik.colliderect(door):
             in_arena = True
             ludzik.x, ludzik.y = WIDTH // 2, HEIGHT // 2
             spawn_snake()
-            veggies = [pygame.Rect(random.randint(0, WIDTH-20), random.randint(0, HEIGHT-20), 15, 15) for _ in range(5)]
+            veggies = [pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15) for _ in range(5)]
+            food_items = [pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15) for _ in range(4)]
+            food_velocities = [(random.choice([-1, 1]) * random.randint(1, 2), random.choice([-1, 1]) * random.randint(1, 2)) for _ in food_items]
     else:
-        # Zbieranie warzyw
         for veggie in veggies[:]:
             if ludzik.colliderect(veggie):
                 veggies.remove(veggie)
                 bullets.append(pygame.Rect(ludzik.x, ludzik.y, 8, 8))
-                veggies.append(pygame.Rect(random.randint(0, WIDTH-20), random.randint(0, HEIGHT-20), 15, 15))
+                veggies.append(pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15))
                 score += 1
 
-        # Warzywa gonią węża
-        for veggie in veggies:
-            dx = snake[0].x - veggie.x
-            dy = snake[0].y - veggie.y
-            dist = distance(veggie, snake[0])
-            veggie.x += int(2 * safe_div(dx, dist))
-            veggie.y += int(2 * safe_div(dy, dist))
+        # Snake AI: goni najbliższy obiekt (gracz lub jedzenie)
+        target = ludzik
+        min_dist = distance(snake[0], ludzik)
+        for food in food_items:
+            d = distance(snake[0], food)
+            if d < min_dist and d < 150:  # jeśli jedzenie blisko, priorytet
+                target = food
+                min_dist = d
 
-        # Wąż goni ludzika
-        dx = ludzik.x - snake[0].x
-        dy = ludzik.y - snake[0].y
-        dist = distance(snake[0], ludzik)
+        dx = target.x - snake[0].x
+        dy = target.y - snake[0].y
+        dist = distance(snake[0], target)
         dir_x = safe_div(dx, dist)
         dir_y = safe_div(dy, dist)
         new_head = snake[0].copy()
@@ -107,7 +119,6 @@ while running:
         if len(snake) > snake_length:
             snake.pop()
 
-        # Pociski lecą do węża
         for bullet in bullets[:]:
             dx = snake[0].x - bullet.x
             dy = snake[0].y - bullet.y
@@ -118,13 +129,28 @@ while running:
                 bullets.remove(bullet)
                 if snake_length > 3:
                     snake_length -= 1
+                    snake.pop()
 
-        # Koniec gry, gdy wąż złapie ludzika
+        for i, food in enumerate(food_items):
+            food.x += food_velocities[i][0]
+            food.y += food_velocities[i][1]
+
+            if food.left <= 0 or food.right >= WIDTH:
+                food_velocities[i] = (-food_velocities[i][0], food_velocities[i][1])
+            if food.top <= 0 or food.bottom >= HEIGHT:
+                food_velocities[i] = (food_velocities[i][0], -food_velocities[i][1])
+
+            if snake[0].colliderect(food):
+                food_items[i] = pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15)
+                food_velocities[i] = (random.choice([-1, 1]) * random.randint(1, 2), random.choice([-1, 1]) * random.randint(1, 2))
+                snake_length += 1
+                tail = snake[-1].copy()
+                snake.append(tail)
+
         if ludzik.colliderect(snake[0]):
             print("Game Over!")
             running = False
 
-    # Rysowanie
     screen.fill(BLUE if not in_arena else BLACK)
 
     if not in_arena:
@@ -140,8 +166,9 @@ while running:
             pygame.draw.rect(screen, RED, veggie)
         for bullet in bullets:
             pygame.draw.rect(screen, WHITE, bullet)
+        for food in food_items:
+            pygame.draw.rect(screen, PURPLE, food)
 
-        # Wyświetlanie punktów
         score_text = font.render(f"Punkty: {score}", True, WHITE)
         screen.blit(score_text, (10, 10))
 
