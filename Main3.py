@@ -5,8 +5,24 @@ import os
 
 pygame.init()
 
-mouse_img_1 = pygame.transform.scale(pygame.image.load(os.path.join("Graphics", "mysz_1.png")), (20, 20))
-mouse_img_2 = pygame.transform.scale(pygame.image.load(os.path.join("Graphics", "mysz_2.png")), (20, 20))
+def load_mouse_images():
+    directions = ["up", "down", "left", "right"]
+    imgs = {}
+    for d in directions:
+        imgs[d] = [
+            pygame.transform.scale(pygame.image.load(os.path.join("Graphics", f"mysz_1_{d}.png")), (20, 20)),
+            pygame.transform.scale(pygame.image.load(os.path.join("Graphics", f"mysz_2_{d}.png")), (20, 20))
+        ]
+    return imgs
+
+mouse_imgs = load_mouse_images()
+fruit_imgs = [
+    pygame.transform.scale(pygame.image.load(os.path.join("Graphics", "apple.png")), (15, 15)),
+    pygame.transform.scale(pygame.image.load(os.path.join("Graphics", "banana.png")), (15, 15)),
+    pygame.transform.scale(pygame.image.load(os.path.join("Graphics", "pear.png")), (15, 15))
+]
+
+mouse_directions = []
 mouse_anim_timer = 0
 
 try:
@@ -40,7 +56,7 @@ bullet_ready = 0
 
 in_arena = False
 score = 0
-snake_lives = 10  # FIXED: separate life variable
+snake_lives = 10
 magic_item = None
 portal = pygame.Rect(WIDTH - 40, HEIGHT // 2 - 40, 30, 80)
 exit_door = None
@@ -49,7 +65,7 @@ mini_game_unlocked = False
 
 snake = []
 snake_speed = 2
-snake_length = 50  # FIXED: long snake, short health
+snake_length = 50
 snake_memory_timer = 0
 player_last_seen = None
 
@@ -85,15 +101,21 @@ def spawn_snake():
         snake.append(pygame.Rect(x - i * 20, y, 20, 20))
 
 def spawn_arena():
-    global obstacles, veggies, food_items, food_velocities
+    global obstacles, veggies, food_items, food_velocities, mouse_directions
     obstacles = [pygame.Rect(random.randint(100, WIDTH - 140), random.randint(100, HEIGHT - 140), 40, 40) for _ in range(6)]
     veggies = [pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15) for _ in range(5)]
     food_items = [pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 20, 20) for _ in range(4)]
     food_velocities.clear()
+    mouse_directions.clear()
     for _ in food_items:
         vx = random.choice([-1, 1]) * random.randint(1, 2)
         vy = random.choice([-1, 1]) * random.randint(1, 2)
         food_velocities.append([vx, vy])
+        if abs(vx) > abs(vy):
+            mouse_directions.append("right" if vx > 0 else "left")
+        else:
+            mouse_directions.append("down" if vy > 0 else "up")
+
 
 running = True
 while running:
@@ -237,8 +259,10 @@ while running:
             pygame.draw.rect(screen, RED, veggie.move(offset_x, offset_y))
         for bullet, _ in bullets:
             pygame.draw.rect(screen, WHITE, bullet.move(offset_x, offset_y))
-        for food in food_items:
-            mouse_img = mouse_img_1 if (mouse_anim_timer // 10) % 2 == 0 else mouse_img_2
+        for idx, food in enumerate(food_items):
+            direction = mouse_directions[idx]
+            frame = (mouse_anim_timer // 10) % 2  # 0 lub 1
+            mouse_img = mouse_imgs[direction][frame]
             screen.blit(mouse_img, food.move(offset_x, offset_y))
         if magic_item:
             pygame.draw.rect(screen, MAGIC, magic_item.move(offset_x, offset_y))
