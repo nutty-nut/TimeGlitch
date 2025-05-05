@@ -1,10 +1,14 @@
-
 import pygame
 import random
 import math
 import os
-
+import subprocess
 pygame.init()
+
+
+# Load background image
+background_img = pygame.image.load(os.path.join("Graphics", "background.png"))
+background_img = pygame.transform.scale(background_img, (WIDTH, HEIGHT))
 
 def load_mouse_images():
     imgs = {}
@@ -19,7 +23,6 @@ def load_mouse_images():
             pygame.transform.scale(pygame.image.load(os.path.join("Graphics", f"mysz_2_{direction}.png")), (20, 16))
         ]
     return imgs
-
 
 mouse_imgs = load_mouse_images()
 fruit_imgs = [
@@ -78,6 +81,7 @@ player_last_seen = None
 obstacle_img = pygame.transform.scale(pygame.image.load(os.path.join("Graphics", "block.png")), (40, 40))
 obstacles = []
 veggies = []
+veggie_types = []
 bullets = []
 food_items = []
 food_velocities = []
@@ -107,9 +111,14 @@ def spawn_snake():
         snake.append(pygame.Rect(x - i * 20, y, 20, 20))
 
 def spawn_arena():
-    global obstacles, veggies, food_items, food_velocities, mouse_directions
+    global obstacles, veggies, veggie_types, food_items, food_velocities, mouse_directions
     obstacles = [pygame.Rect(random.randint(100, WIDTH - 140), random.randint(100, HEIGHT - 140), 40, 40) for _ in range(6)]
-    veggies = [pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15) for _ in range(5)]
+    veggies.clear()
+    veggie_types.clear()
+    for _ in range(5):
+        rect = pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 15, 15)
+        veggies.append(rect)
+        veggie_types.append(random.randint(0, len(fruit_imgs)-1))
     food_items = [pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 20, 20) for _ in range(4)]
     food_velocities.clear()
     mouse_directions.clear()
@@ -157,7 +166,9 @@ while running:
         bullet_ready = 0
 
     if in_arena:
-        for veggie in veggies[:]:
+        for i, veggie in enumerate(veggies):
+            img = fruit_imgs[veggie_types[i] % len(fruit_imgs)]
+            screen.blit(img, veggie.move(offset_x, offset_y))
             if ludzik.colliderect(veggie):
                 veggies.remove(veggie)
                 bullet_ready += 1
@@ -249,7 +260,14 @@ while running:
             in_arena = False
             ludzik.x, ludzik.y = 100, 300
 
-    screen.fill(BLUE if not in_arena else BLACK)
+    if not in_arena:
+        screen.blit(background_img, (0, 0))
+    else:
+        if glitch_timer % 20 < 5:
+            screen.fill((random.randint(0,30), random.randint(0,30), random.randint(0,30)))
+        else:
+            screen.blit(background_img, (0, 0))
+
     if in_arena:
         for o in obstacles:
             screen.blit(obstacle_img, o)
@@ -265,19 +283,17 @@ while running:
             screen.blit(font.render("Wejście do Areny", True, BLACK), (portal.x - 30, portal.y - 30))
     else:
         offset_x, offset_y = glitch_frames[glitch_timer % len(glitch_frames)] if glitch_timer % 10 < 3 else (0, 0)
-        if glitch_timer % 20 < 5:
-            screen.fill((random.randint(0,30), random.randint(0,30), random.randint(0,30)))
 
         pygame.draw.rect(screen, YELLOW, ludzik.move(offset_x, offset_y))
         for s in snake:
             pygame.draw.rect(screen, GREEN, s.move(offset_x, offset_y))
-        for veggie in veggies:
-            pygame.draw.rect(screen, RED, veggie.move(offset_x, offset_y))
+        for i, veggie in enumerate(veggies):
+            screen.blit(fruit_imgs[veggie_types[i]], veggie.move(offset_x, offset_y))
         for bullet, _ in bullets:
             pygame.draw.rect(screen, WHITE, bullet.move(offset_x, offset_y))
         for idx, food in enumerate(food_items):
             direction = mouse_directions[idx]
-            frame = (mouse_anim_timer // 10) % 2  # 0 lub 1
+            frame = (mouse_anim_timer // 10) % 2
             mouse_img = mouse_imgs[direction][frame]
             screen.blit(mouse_img, food.move(offset_x, offset_y))
         if magic_item:
@@ -286,7 +302,7 @@ while running:
             pygame.draw.rect(screen, CYAN, exit_door)
         screen.blit(font.render(f"Punkty: {score}", True, WHITE), (10, 10))
         screen.blit(font.render(f"Amunicja: {bullet_ready}", True, WHITE), (10, 40))
-        screen.blit(font.render(f"Życia węża: {snake_lives}", True, WHITE), (10, 70))
+        screen.blit(font.render(f"\u017bycia węża: {snake_lives}", True, WHITE), (10, 70))
 
     pygame.display.flip()
 
