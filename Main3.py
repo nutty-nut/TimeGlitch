@@ -40,7 +40,7 @@ bullet_ready = 0
 
 in_arena = False
 score = 0
-snake_lives = 10
+snake_lives = 10  # FIXED: separate life variable
 magic_item = None
 portal = pygame.Rect(WIDTH - 40, HEIGHT // 2 - 40, 30, 80)
 exit_door = None
@@ -49,7 +49,7 @@ mini_game_unlocked = False
 
 snake = []
 snake_speed = 2
-snake_length = 10
+snake_length = 50  # FIXED: long snake, short health
 snake_memory_timer = 0
 player_last_seen = None
 
@@ -77,8 +77,8 @@ def clamp_rect(rect, width, height):
 
 def spawn_snake():
     global snake, snake_length, snake_lives
-    snake_length = 10
-    snake_lives = snake_length
+    snake_length = 50
+    snake_lives = 10
     snake.clear()
     x, y = random.randint(100, WIDTH - 100), random.randint(100, HEIGHT - 100)
     for i in range(snake_length):
@@ -136,7 +136,7 @@ while running:
                 veggies.append(pygame.Rect(random.randint(0, WIDTH-20), random.randint(0, HEIGHT-20), 15, 15))
                 score += 1
 
-        if snake and snake[0].colliderect(ludzik):
+        if snake and any(part.colliderect(ludzik) for part in snake):
             in_arena = False
             ludzik.x, ludzik.y = 100, 300
 
@@ -170,7 +170,12 @@ while running:
         for bullet, _ in bullets[:]:
             if not snake:
                 continue
-            if bullet.colliderect(snake[0]):
+            hit = False
+            for part in snake:
+                if bullet.colliderect(part):
+                    hit = True
+                    break
+            if hit:
                 bullets.remove((bullet, _))
                 snake_lives -= 1
                 if snake_lives <= 0:
@@ -192,6 +197,7 @@ while running:
                 food_items[i] = pygame.Rect(random.randint(0, WIDTH - 20), random.randint(0, HEIGHT - 20), 20, 20)
                 food_velocities[i] = [random.choice([-1,1])*random.randint(1,2), random.choice([-1,1])*random.randint(1,2)]
                 snake_length += 3
+                snake_lives = min(snake_lives + 1, 10)
                 tail = snake[-1].copy()
                 for _ in range(3):
                     snake.append(tail.copy())
