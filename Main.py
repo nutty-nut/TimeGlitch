@@ -20,9 +20,22 @@ except:
     print("Brak pliku 'player_8bit.png', gracz będzie kwadratem.")
 
 
+# --- Nowe elementy: Monety ---
+coins = [pygame.Rect(random.randint(50, 750), random.randint(100, 500), 20, 20) for _ in range(5)]
+coin_color = (255, 215, 0)
+coins_collected = 0
+
 level = 1
 
-platforms_level1 = [pygame.Rect(0, 550, 800, 50)]
+# --- Nowe platformy poziom 1 ---
+platforms_level1 = [
+    pygame.Rect(0, 550, 200, 30),
+    pygame.Rect(250, 480, 150, 30),
+    pygame.Rect(450, 400, 200, 30),
+    pygame.Rect(700, 320, 100, 30),
+    pygame.Rect(100, 240, 150, 30)
+]
+
 platforms_level2 = [
     pygame.Rect(0, 550, 300, 30),
     pygame.Rect(350, 450, 300, 30),
@@ -96,36 +109,33 @@ def draw():
     x_offset = random.randint(-5, 5) if glitching else 0
     y_offset = random.randint(-5, 5) if glitching else 0
 
-    # Tło: inny kolor albo obrazek dla level 2
     if level == 2 and bg_level2:
         WIN.blit(bg_level2, (0, 0))
     else:
         WIN.fill(PALETTES[current_palette][0])
 
-    # Gracz: sprite lub kwadrat
     if use_sprite and player_sprite:
         WIN.blit(player_sprite, player.move(x_offset, y_offset))
     else:
         pygame.draw.rect(WIN, PALETTES[current_palette][1], player.move(x_offset, y_offset))
 
-    # Platformy
     for plat in platforms:
         pygame.draw.rect(WIN, PALETTES[current_palette][2], plat.move(x_offset, y_offset))
 
-    # Boss (tylko jeśli istnieje)
     if boss:
         pygame.draw.rect(WIN, (255, 0, 255), boss.move(x_offset, y_offset))
 
-    # Glitch efekty wizualne
+    draw_coins()
+
     if glitching:
         for _ in range(10):
             pygame.draw.rect(WIN, random.choice(PALETTES[current_palette]),
                              pygame.Rect(random.randint(0, WIDTH), random.randint(0, HEIGHT), 5, 5))
 
-    # Wynik
-    score = font.render(f"Epoki: {epochs_survived}", True, PALETTES[current_palette][1])
+    score = font.render(f"Epoki: {epochs_survived} | Monety: {coins_collected}", True, PALETTES[current_palette][1])
     WIN.blit(score, (10, 10))
     pygame.display.update()
+
 
 
 def handle_input(keys):
@@ -163,17 +173,26 @@ def glitch_palette():
         print("Awans do poziomu 2!")
 
 
+# --- Zmodyfikowane zachowanie bossa ---
 def spawn_boss():
     global boss
     if level == 1:
-        boss = pygame.Rect(random.randint(600, 750), 500, 50, 50)
+        boss = pygame.Rect(random.randint(600, 750), 200, 60, 60)
+
+boss_velocity_y = 3
 
 def update_boss():
-    global boss, boss_direction
+    global boss, boss_direction, boss_velocity_y
     if boss:
-        boss.x += boss_direction * 4
+        boss.x += boss_direction * 3
+        boss.y += boss_velocity_y
+
         if boss.x <= 0 or boss.x >= WIDTH - boss.width:
             boss_direction *= -1
+
+        if boss.y <= 100 or boss.y >= 400:
+            boss_velocity_y *= -1
+
 
 def check_collision_with_boss():
     if boss and player.colliderect(boss):
@@ -219,6 +238,18 @@ def game_over_screen():
                 elif event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
                     pygame.quit()
                     sys.exit()
+                    
+                    
+def draw_coins():
+    for coin in coins:
+        pygame.draw.circle(WIN, coin_color, coin.center, 10)
+
+def check_coin_collection():
+    global coins_collected
+    for coin in coins[:]:
+        if player.colliderect(coin):
+            coins.remove(coin)
+            coins_collected += 1
 
 
 def save_progress():
@@ -247,6 +278,7 @@ load_progress()
 frame_count = 0
 running = True
 
+# --- Zmodyfikowana główna pętla gry ---
 while running:
     clock.tick(FPS)
     keys = pygame.key.get_pressed()
@@ -265,17 +297,16 @@ while running:
             load_progress()
         continue
 
-
     handle_input(keys)
     apply_gravity()
     update_boss()
     check_collision_with_boss()
+    check_coin_collection()
 
     if player.y > HEIGHT + 100:
         save_score()
         game_over_screen()
-        
-    # Glitch co 5 sekund
+
     frame_count += 1
     if frame_count % (FPS * 5) == 0:
         glitch_palette()
